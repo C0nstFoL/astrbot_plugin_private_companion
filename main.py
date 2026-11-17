@@ -582,7 +582,12 @@ class PrivateCompanionV2StagingPlugin(Star):
         session = self.staging.session
         if (self.staging._accepting and session is not None
                 and session.application.state == "running"):
-            if self.staging.native_bridges_current():
+            checker = getattr(self.staging, "native_bridges_current", None)
+            try:
+                bridges_current = bool(checker()) if callable(checker) else False
+            except Exception:
+                bridges_current = False
+            if bridges_current:
                 return
             self.staging._accepting = False
         task = self._host_start_task

@@ -98,6 +98,36 @@ class AstrBotMultiController:
         from .multi_api import MultiHostWebAPI
         self.web_api = MultiHostWebAPI(self)
 
+    def native_bridges_current(self) -> bool:
+        """True when every native bridge still holds the live platform/client pair.
+
+        A platform reload hands AstrBot a new platform object (and often a new
+        client).  The running session keeps the old pair; when it diverges the
+        host must be rebuilt instead of continuing to accept into a dead bridge.
+        """
+        session = self.session
+        if session is None:
+            return False
+        bridge = getattr(session, "bridge", None)
+        if bridge is None:
+            return False
+        get_platform = getattr(self.context, "get_platform_inst", None)
+        for holder in (bridge, getattr(bridge, "groups", None)):
+            if holder is None:
+                continue
+            platforms = getattr(holder, "platforms", None)
+            if not isinstance(platforms, dict):
+                continue
+            for platform_id, pair in list(platforms.items()):
+                try:
+                    platform, client = pair
+                except (TypeError, ValueError):
+                    return False
+                live = get_platform(platform_id) if callable(get_platform) else None
+                if live is None or live is not platform or live.get_client() is not client:
+                    return False
+        return True
+
     def repair_legacy_config(self) -> dict[str, list[str]]:
         """Normalize stale optional policy fields once, then refresh settings.
 
